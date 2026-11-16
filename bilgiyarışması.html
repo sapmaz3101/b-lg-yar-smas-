@@ -912,6 +912,9 @@
 
 <button id="duzenleyiciKapatBtn">❌ Düzenlemeyi Bitir</button>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
 // ==================== FONT LİSTESİ ====================
 const FONT_LISTESI = [
@@ -937,7 +940,22 @@ const RENK_PALETI = [
   '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
   '#f43f5e', '#facc15', '#22d3ee', '#94a3b8'
 ];
+// Firebase'i başlat
+// ==================== FIREBASE YAPILANDIRMASI ====================
+const firebaseConfig = {
+  apiKey: "BURAYA_API_KEY_YAZ",
+  authDomain: "bilgi-92b9c.firebaseapp.com",
+  databaseURL: "https://bilgi-92b9c-default-rtdb.firebaseio.com/",
+  projectId: "bilgi-92b9c",
+  storageBucket: "bilgi-92b9c.appspot.com",
+  messagingSenderId: "203199066275",
+  appId: "1:203199066275:web:4732a2e844461c8e5d4f16"
+};
+firebase.initializeApp(firebaseConfig);  // firebaseConfig'i ikinci adımda kopyaladığınız nesneyle değiştirin
 
+// Realtime Database referansını alın
+const db = firebase.database();
+const veriRef = db.ref('yarismaVeri');   // Tüm yarışma verileri bu düğüm altında saklanacak
 // ==================== VERİ ====================
 let veri = {
   takimlar: [],
@@ -988,93 +1006,47 @@ let duzenlenenSoruIdx = null;
 let duzenlenenMedyaSoruIdx = null;
 
 // ==================== KAYIT ====================
-function yukle() {
-  const kayit = localStorage.getItem('yarismaVeri');
-  if (kayit) { try { veri = Object.assign(veri, JSON.parse(kayit)); } catch(e){} }
-  if (!veri.takimlar) veri.takimlar = [];
-  if (!veri.sorular) veri.sorular = [];
-  if (!veri.isaretler) veri.isaretler = {};
-  if (!veri.manuelPuanlar) veri.manuelPuanlar = [];
-  if (veri.suAnkiSoru == null) veri.suAnkiSoru = 0;
-  if (veri.acikCevap == null) veri.acikCevap = false;
-  if (!veri.soruStili) veri.soruStili = {
-    metinFont: 'segoe', metinBoyut: 32, metinKalinlik: '700', metinRenk: '#e2e8f0', metinStil: 'normal',
-    secenekFont: 'segoe', secenekBoyut: 22, secenekKalinlik: '400', secenekRenk: '#e2e8f0', secenekStil: 'normal'
-  };
-  veri.sorular.forEach(s => { if (!s.medya) s.medya = null; if (!s.stil) s.stil = null; });
-  if (!veri.giris) veri.giris = {};
-  const g = veri.giris;
-  const girisDefaults = {
-    baslik: 'Yarışmaya Hoş Geldiniz!', altBaslik: 'Bilginizi test etme zamanı...',
-    buton: 'Yarışmayı Başlat', sure: 0, aktif: true,
-    baslikRenk: '#38bdf8', baslikBoyut: 72, altBaslikRenk: '#cbd5e1', altBaslikBoyut: 28,
-    butonRenk: '#38bdf8', butonYaziRenk: '#0f172a', butonBoyut: 32, butonKose: 18, butonDolgu: 25,
-    baslikFont: 'segoe', baslikKalinlik: '900', baslikStil: 'normal',
-    altBaslikFont: 'segoe', altBaslikKalinlik: '700', altBaslikStil: 'normal',
-    butonFont: 'segoe', butonKalinlik: '700', butonStil: 'normal',
-    baslikX: 0, baslikY: 0, altBaslikX: 0, altBaslikY: 0, butonX: 0, butonY: 0,
-    medya: { url: '', tip: 'foto', yukseklik: 0 }
-  };
-  Object.keys(girisDefaults).forEach(k => { if (g[k] == null) g[k] = girisDefaults[k]; });
-  if (!g.medya) g.medya = { url:'', tip:'foto', yukseklik:0 };
-  if (!veri.muzik) veri.muzik = { url:'', ses:30, aktif:true, dongu:true };
-  if (!veri.kategoriEkrani) veri.kategoriEkrani = { aktif: true, aralik: 4, baslik: 'Sıradaki Soru', kategoriEtiket: 'Kategori', sure: 0 };
-  if (!veri.soruKategorileri) veri.soruKategorileri = {};
+  function yukle() {
+  veriRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      veri = Object.assign(veri, data);
+      if (!veri.takimlar) veri.takimlar = [];
+      if (!veri.sorular) veri.sorular = [];
+      if (!veri.isaretler) veri.isaretler = {};
+      if (!veri.manuelPuanlar) veri.manuelPuanlar = [];
+      if (veri.suAnkiSoru == null) veri.suAnkiSoru = 0;
+      if (veri.acikCevap == null) veri.acikCevap = false;
+      if (!veri.soruStili) veri.soruStili = {
+        metinFont: 'segoe', metinBoyut: 32, metinKalinlik: '700', metinRenk: '#e2e8f0', metinStil: 'normal',
+        secenekFont: 'segoe', secenekBoyut: 22, secenekKalinlik: '400', secenekRenk: '#e2e8f0', secenekStil: 'normal'
+      };
+      if (!veri.giris) veri.giris = {};
+      if (!veri.muzik) veri.muzik = { url:'', ses:30, aktif:true, dongu:true };
+      if (!veri.kategoriEkrani) veri.kategoriEkrani = { aktif: true, aralik: 4, baslik: 'Sıradaki Soru', kategoriEtiket: 'Kategori', sure: 0 };
+      if (!veri.soruKategorileri) veri.soruKategorileri = {};
+      veri.sorular.forEach(s => { if (!s.medya) s.medya = null; if (!s.stil) s.stil = null; });
+
+      ekraniCiz();
+      if (document.getElementById('page-puan').classList.contains('active')) puanCiz();
+      if (document.getElementById('page-skor').classList.contains('active')) skorCiz();
+      if (document.getElementById('page-ayarlar').classList.contains('active')) {
+        takimCiz(); soruCiz(); kategoriListesiCiz();
+      }
+    }
+  });
 }
-function kaydet() { localStorage.setItem('yarismaVeri', JSON.stringify(veri)); }
+function kaydet() {
+  veriRef.set(veri)
+    .then(() => console.log('Veriler Firebase\'e kaydedildi'))
+    .catch(err => console.error('Kaydetme başarısız:', err));
+}
 
-// ==================== BROADCAST ====================
-let bc = null;
-try {
-  bc = new BroadcastChannel('yarisma_senkron');
-  bc.onmessage = (e) => {
-    const msg = e.data;
-    if (!msg) return;
-    if (msg.tip === 'veri-guncelle' && sunumModu) { veri = msg.veri; ekraniCiz(); }
-    if (msg.tip === 'sayac-baslat' && sunumModu) {
-      if (sayacInterval) clearInterval(sayacInterval);
-      kalanSure = msg.sure;
-      sayacGuncelle(kalanSure, false);
-      sayacInterval = setInterval(() => {
-        kalanSure--;
-        sayacGuncelle(kalanSure, kalanSure <= 5);
-        if (kalanSure <= 0) { clearInterval(sayacInterval); sayacInterval = null; sayacGuncelle('⏰', false); }
-      }, 1000);
-    }
-    if (msg.tip === 'sayac-durdur' && sunumModu) { if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; } }
-    if (msg.tip === 'sayac-bitti' && sunumModu) { if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; } sayacGuncelle('⏰', false); }
-    if (msg.tip === 'ara-skor-goster' && sunumModu) araSkorGoster(msg.tipDetay);
-    if (msg.tip === 'ara-skor-gizle' && sunumModu) { document.getElementById('araSkorEkrani').classList.remove('aktif'); araSkorGosteriliyor = false; }
-    if (msg.tip === 'medya-ekrani-goster' && sunumModu) { const soru = veri.sorular[msg.soruIdx]; if (soru) medyaEkraniGoster(soru); }
-    if (msg.tip === 'medya-ekrani-gizle' && sunumModu) medyaEkraniGizle();
-    if (msg.tip === 'medya-kapandi' && !sunumModu) {
-      if (medyaKapandiIslendi) return;
-      medyaKapandiIslendi = true;
-      setTimeout(() => { medyaKapandiIslendi = false; }, 500);
-      medyaBekliyor = false; medyaUyariKartiGuncelle(); sonrakiSoruyaGec();
-    }
-    if (msg.tip === 'giris-ekrani-goster' && sunumModu) girisGoster(null);
-    if (msg.tip === 'giris-ekrani-gizle' && sunumModu) girisGizle(null);
-    if (msg.tip === 'muzik-cal' && sunumModu) muzikCal();
-    if (msg.tip === 'muzik-durdur' && sunumModu) muzikDurdur();
-    if (msg.tip === 'kategori-ekrani-goster' && sunumModu) kategoriEkraniGoster(msg.soruIdx);
-    if (msg.tip === 'kategori-ekrani-gizle' && sunumModu) {
-      const ekran = document.getElementById('kategoriEkrani');
-      if (ekran) ekran.classList.remove('aktif');
-      kategoriEkraniGosteriliyor = false;
-    }
-  };
-} catch(err) {}
-
-window.addEventListener('storage', (e) => {
-  if (e.key === 'yarismaVeri' && e.newValue && sunumModu) {
-    try { veri = Object.assign(veri, JSON.parse(e.newValue)); ekraniCiz(); } catch(err) {}
-  }
-});
 
 function senkronGonder() {
-  if (bc) { try { bc.postMessage({ tip: 'veri-guncelle', veri: JSON.parse(JSON.stringify(veri)) }); } catch(err){} }
+  // Firebase otomatik senkronize ediyor, bu fonksiyon artık gerekli değil
 }
+ 
 
 // ==================== SEKMELER ====================
 document.querySelectorAll('.tab').forEach(t => {
