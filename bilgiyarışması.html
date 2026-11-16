@@ -2833,6 +2833,244 @@ if (btnRenkleriTemizle) btnRenkleriTemizle.addEventListener('click', renkleriTem
     setTimeout(() => alert('📺 SUNUM MODU AÇIK\n\n• F11 ile tam ekran yapın\n• Bu sekmeyi projeksiyona sürükleyin'), 500);
   }
 })();
+
+// ==================== EKSİK BÖLÜM TAMAMLAMA ====================
+
+// --- Font yardımcıları ---
+function fontFamily(f) {
+  const m = { segoe:"'Segoe UI',Arial,sans-serif", arial:'Arial,sans-serif', georgia:'Georgia,serif',
+    impact:'Impact,sans-serif', courier:"'Courier New',monospace", verdana:'Verdana,sans-serif',
+    trebuchet:"'Trebuchet MS',sans-serif", times:"'Times New Roman',serif", comic:"'Comic Sans MS',cursive" };
+  return m[f] || m.segoe;
+}
+function getStilClass(s) {
+  if (s === 'italik') return 'stil-italik';
+  if (s === 'golge') return 'stil-golge';
+  if (s === 'italik-golge') return 'stil-italik stil-golge';
+  return '';
+}
+
+// --- EKRANI ÇİZ (ana fonksiyon) ---
+function ekraniCiz() {
+  const soru = veri.sorular[veri.suAnkiSoru];
+  const soruNo = document.getElementById('soruNo');
+  const soruKutu = document.getElementById('soruKutu');
+
+  if (!soru) {
+    if (soruNo) soruNo.textContent = 'Soru 0 / 0';
+    if (soruKutu) soruKutu.innerHTML = '<div class="soru-baslik">Soru yok</div><div class="soru-metin">Ayarlar sekmesinden soru ekleyin.</div>';
+    sayacGuncelle(-1);
+    return;
+  }
+
+  if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; }
+  kalanSure = soru.sure || 30;
+  sayacGuncelle(kalanSure);
+
+  if (soruNo) soruNo.textContent = `Soru ${veri.suAnkiSoru + 1} / ${veri.sorular.length}`;
+
+  const def = veri.soruStili || {};
+  const st = soru.stil || {};
+  let html = '';
+
+  // Medya
+  if (soru.medya && soru.medya.url) {
+    if (soru.medya.tip === 'foto') {
+      html += `<div id="soruMedyaAlani"><img src="${soru.medya.url}" alt="Soru medyası"></div>`;
+    } else {
+      html += `<div id="soruMedyaAlani"><video src="${soru.medya.url}" controls autoplay></video></div>`;
+    }
+  }
+
+  // Soru kökü
+  if (soru.metin) {
+    html += `<div class="soru-kok-blok"><div class="kok-etiket">📖 Soru</div><div class="soru-metin" id="soruMetinIcerik"></div></div>`;
+  }
+
+  // Şıklar
+  html += `<div class="secenekler-blok"><div class="sec-etiket">🔤 Şıklar</div><div class="secenekler" id="secenekler">`;
+  const harfler = ['A','B','C','D'];
+  soru.secenekler.forEach((sec, i) => {
+    const dogruMu = (veri.acikCevap && harfler[i] === soru.dogru) ? ' dogru' : '';
+    html += `<div class="secenek${dogruMu}"><div class="harf">${harfler[i]}</div><div class="secenek-metin">${escapeHtml(sec)}</div></div>`;
+  });
+  html += `</div></div>`;
+
+  // Büyük cevap
+  if (veri.acikCevap) {
+    const dogruIdx = harfler.indexOf(soru.dogru);
+    const dogruMetin = soru.secenekler[dogruIdx] || '';
+    html += `<div id="buyukCevapAlani"><div class="baslik">✅ DOĞRU CEVAP</div><div class="harf-buyuk">${soru.dogru}</div><div class="metin">${escapeHtml(dogruMetin)}</div></div>`;
+  }
+
+  if (soruKutu) soruKutu.innerHTML = html;
+
+  // Soru metnini güvenli yerleştir
+  const metinEl = document.getElementById('soruMetinIcerik');
+  if (metinEl && soru.metin) {
+    if (/<[a-z][\s\S]*>/i.test(soru.metin)) metinEl.innerHTML = soru.metin;
+    else metinEl.textContent = soru.metin;
+  }
+
+  // Stil uygula
+  const kokBlok = soruKutu ? soruKutu.querySelector('.soru-kok-blok') : null;
+  if (kokBlok) {
+    kokBlok.style.fontFamily = fontFamily(st.metinFont || def.metinFont || 'segoe');
+    kokBlok.style.fontSize = (st.metinBoyut || def.metinBoyut || 32) + 'px';
+    kokBlok.style.fontWeight = st.metinKalinlik || def.metinKalinlik || '700';
+    const ms = st.metinStil || def.metinStil || 'normal';
+    kokBlok.style.fontStyle = ms.includes('italik') ? 'italic' : 'normal';
+    kokBlok.style.color = st.metinRenk || def.metinRenk || '#e2e8f0';
+  }
+  const secBlok = soruKutu ? soruKutu.querySelector('.secenekler-blok') : null;
+  if (secBlok) {
+    secBlok.style.fontFamily = fontFamily(st.secenekFont || def.secenekFont || 'segoe');
+    secBlok.style.fontSize = (st.secenekBoyut || def.secenekBoyut || 22) + 'px';
+    secBlok.style.fontWeight = st.secenekKalinlik || def.secenekKalinlik || '400';
+    const ss = st.secenekStil || def.secenekStil || 'normal';
+    secBlok.style.fontStyle = ss.includes('italik') ? 'italic' : 'normal';
+    secBlok.style.color = st.secenekRenk || def.secenekRenk || '#e2e8f0';
+  }
+}
+
+// --- SAYAÇ GÜNCELLE ---
+function sayacGuncelle(sn) {
+  const el = document.getElementById('sayac');
+  const sel = document.getElementById('sunumSayac');
+  const metin = sn >= 0 ? sn + 's' : '--';
+  if (el) { el.textContent = metin; el.classList.toggle('uyari', sn <= 5 && sn > 0); }
+  if (sel) { sel.textContent = metin; sel.classList.toggle('uyari', sn <= 5 && sn > 0); }
+}
+
+// --- BUTON LİSTENER'LARI ---
+document.getElementById('btnBaslat').addEventListener('click', () => {
+  if (sayacInterval) return;
+  if (!veri.sorular.length) return alert('Önce soru ekleyin!');
+  if (kalanSure <= 0) {
+    const soru = veri.sorular[veri.suAnkiSoru];
+    kalanSure = soru ? (soru.sure || 30) : 30;
+  }
+  sayacGuncelle(kalanSure);
+  sayacInterval = setInterval(() => {
+    kalanSure--;
+    sayacGuncelle(kalanSure);
+    if (kalanSure <= 0) {
+      clearInterval(sayacInterval);
+      sayacInterval = null;
+      sayacGuncelle(0);
+    }
+  }, 1000);
+});
+
+document.getElementById('btnDurdur').addEventListener('click', () => {
+  if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; }
+});
+
+document.getElementById('btnCevap').addEventListener('click', () => {
+  veri.acikCevap = !veri.acikCevap;
+  ekraniCiz(); kaydet();
+});
+
+document.getElementById('btnOnceki').addEventListener('click', () => {
+  if (veri.suAnkiSoru > 0) {
+    if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; }
+    veri.suAnkiSoru--; veri.acikCevap = false;
+    ekraniCiz(); kaydet();
+  }
+});
+
+document.getElementById('btnSonraki').addEventListener('click', () => {
+  if (veri.suAnkiSoru < veri.sorular.length - 1) {
+    if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; }
+    veri.suAnkiSoru++; veri.acikCevap = false;
+    ekraniCiz(); kaydet();
+  } else alert('Son sorudasınız!');
+});
+
+document.getElementById('btnBasaDon').addEventListener('click', () => {
+  if (!confirm('Başa dönmek istiyor musunuz?')) return;
+  if (sayacInterval) { clearInterval(sayacInterval); sayacInterval = null; }
+  veri.suAnkiSoru = 0; veri.acikCevap = false;
+  ekraniCiz(); kaydet();
+});
+
+document.getElementById('btnYarismayiBaslat').addEventListener('click', () => {
+  if (!veri.sorular.length) return alert('Önce soru ekleyin!');
+  veri.suAnkiSoru = 0; veri.acikCevap = false;
+  ekraniCiz();
+  setTimeout(() => document.getElementById('btnBaslat').click(), 100);
+});
+
+// --- GİRİŞ EKRANI ---
+function girisGoster(callback) {
+  const ekran = document.getElementById('girisEkrani');
+  const g = veri.giris || {};
+  if (g.aktif === false) { if (callback) callback(); return; }
+  document.getElementById('girisBaslik').textContent = g.baslik || 'Yarışmaya Hoş Geldiniz!';
+  document.getElementById('girisAltBaslik').textContent = g.altBaslik || '';
+  document.getElementById('girisBaslaBtn').textContent = g.buton || 'Yarışmayı Başlat';
+  ekran.classList.add('aktif');
+  girisGosteriliyor = true;
+  const kapat = () => girisGizle(callback);
+  document.getElementById('girisBaslaBtn').onclick = kapat;
+  girisKeyHandler = (e) => { if (e.key === 'Enter') kapat(); };
+  document.addEventListener('keydown', girisKeyHandler);
+  if (g.sure > 0) girisTimer = setTimeout(kapat, g.sure * 1000);
+}
+function girisGizle(callback) {
+  document.getElementById('girisEkrani').classList.remove('aktif');
+  girisGosteriliyor = false;
+  if (girisTimer) { clearTimeout(girisTimer); girisTimer = null; }
+  if (girisKeyHandler) { document.removeEventListener('keydown', girisKeyHandler); girisKeyHandler = null; }
+  if (callback) callback();
+}
+function girisAyarlariniDoldur() {
+  const g = veri.giris || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('gBaslik', g.baslik || ''); setVal('gAltBaslik', g.altBaslik || '');
+  setVal('gButon', g.buton || ''); setVal('gSure', g.sure || 0);
+  setVal('gAktif', g.aktif ? '1' : '0');
+  setVal('gBaslikRenk', g.baslikRenk || '#38bdf8'); setVal('gBaslikBoyut', g.baslikBoyut || 72);
+  setVal('gAltBaslikRenk', g.altBaslikRenk || '#cbd5e1'); setVal('gAltBaslikBoyut', g.altBaslikBoyut || 28);
+  setVal('gButonRenk', g.butonRenk || '#38bdf8'); setVal('gButonYaziRenk', g.butonYaziRenk || '#0f172a');
+  setVal('gButonBoyut', g.butonBoyut || 32); setVal('gButonKose', g.butonKose || 18); setVal('gButonDolgu', g.butonDolgu || 25);
+}
+function muzikAyarlariniDoldur() {
+  const m = veri.muzik || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('muzikUrl', m.url || ''); setVal('muzikSes', m.ses || 30);
+  setVal('muzikAktif', m.aktif ? '1' : '0'); setVal('muzikDongu', m.dongu ? '1' : '0');
+}
+function kategoriAyarlariniDoldur() {
+  const k = veri.kategoriEkrani || {};
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  setVal('keAktif', k.aktif ? '1' : '0'); setVal('keAralik', k.aralik || 4);
+  setVal('keSure', k.sure || 0); setVal('keBaslik', k.baslik || 'Sıradaki Soru');
+  setVal('keKategoriEtiket', k.kategoriEtiket || 'Kategori');
+}
+function kategoriListesiCiz() {
+  const el = document.getElementById('kategoriListesi');
+  if (!el) return;
+  if (!veri.sorular.length) { el.innerHTML = '<div class="bos-uyari">Soru yok.</div>'; return; }
+  el.innerHTML = veri.sorular.map((s, i) => {
+    const k = (veri.soruKategorileri && veri.soruKategorileri[i]) || '(kategori yok)';
+    return `<div class="liste-item"><div class="bilgi"><strong>${i+1}. Soru</strong><small>${k}</small></div></div>`;
+  }).join('');
+}
+function girisMedyaOlaylariniBagla() {}
+function medyaModalKapat() {
+  const modal = document.getElementById('medyaModal');
+  if (modal) { modal.classList.remove('aktif'); modal.style.display = 'none'; }
+}
+function muzikDurdur() { if (muzikAudio) { muzikAudio.pause(); muzikAudio.currentTime = 0; } }
+function araSkorGoster() {}
+
+let bc = null;
+try { bc = new BroadcastChannel('yarisma'); } catch(e) {}
+
+// İlk çizim
+ekraniCiz();
+console.log('✅ Eksik fonksiyonlar tamamlandı.');
 </script>
 </body>
 </html>
